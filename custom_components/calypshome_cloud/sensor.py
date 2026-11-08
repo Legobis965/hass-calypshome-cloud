@@ -40,8 +40,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             entities.append(CalypsHomeIlluminanceSensor(coordinator, api, obj))
 
     if entities:
-        async_add_entities(entities, True)
-        LOGGER.info("%d capteurs Calyps'HOME ajoutés", len(sonde_objects))
+        async_add_entities(entities)
+        LOGGER.info("%d capteurs Calyps'HOME ajoutés", len(entities))
 
 
 class CalypsHomeSensorBase(CoordinatorEntity, SensorEntity):
@@ -63,7 +63,6 @@ class CalypsHomeSensorBase(CoordinatorEntity, SensorEntity):
         self._device_name = object.name
         self._attr_unique_id = f"{self._device_id}_{unique_suffix}"
         self._attr_native_value = None
-        self._attr_available = True
 
     @property
     def device_info(self):

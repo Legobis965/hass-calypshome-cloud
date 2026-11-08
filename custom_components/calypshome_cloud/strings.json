@@ -3,19 +3,28 @@
     "step": {
       "user": {
         "title": "Configure Calyps'HOME",
-        "description": "Enter your Calyps'HOME account login credentials",
+        "description": "Enter your Calyps'HOME cloud login credentials",
         "data": {
           "login": "Login email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Calyps'HOME",
+        "description": "The Calyps'HOME cloud rejected the credentials of {login}. Enter the current password.",
+        "data": {
           "password": "Password"
         }
       }
     },
     "error": {
-      "cannot_connect": "Unable to connect to Calyps'HOME. Check your email and password."
+      "cannot_connect": "Unable to connect to the Calyps'HOME cloud. Try again later.",
+      "invalid_auth": "Invalid email or password.",
+      "unknown": "Unexpected error."
     },
     "abort": {
-      "already_configured": "This Calyps'HOME box is already configured"
+      "already_configured": "This Calyps'HOME account is already configured",
+      "reauth_successful": "Re-authentication was successful"
     }
   }
 }
-

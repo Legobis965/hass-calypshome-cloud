@@ -1,4 +1,3 @@
-
 {
   "config": {
     "step": {
@@ -9,13 +8,23 @@
           "login": "Email de connexion",
           "password": "Mot de passe"
         }
+      },
+      "reauth_confirm": {
+        "title": "Réauthentification Calyps'HOME",
+        "description": "Le cloud Calyps'HOME a refusé les identifiants de {login}. Saisissez le mot de passe actuel.",
+        "data": {
+          "password": "Mot de passe"
+        }
       }
     },
     "error": {
-      "cannot_connect": "Impossible de se connecter à Calyps'HOME. Vérifiez l'email et le mot de passe."
+      "cannot_connect": "Impossible de se connecter au cloud Calyps'HOME. Réessayez plus tard.",
+      "invalid_auth": "Email ou mot de passe incorrect.",
+      "unknown": "Erreur inattendue."
     },
     "abort": {
-      "already_configured": "Cette box Calyps'HOME est déjà configurée"
+      "already_configured": "Ce compte Calyps'HOME est déjà configuré",
+      "reauth_successful": "Réauthentification réussie"
     }
   }
 }

@@ -1,9 +1,11 @@
 import logging
+from datetime import datetime
 from typing import Any
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.components.cover import ATTR_POSITION, CoverDeviceClass, CoverEntity, CoverEntityFeature
 
@@ -11,6 +13,11 @@ from .api import CalypsHomeAPI, CalypsHomeObject
 from .const import DOMAIN
 
 LOGGER = logging.getLogger(__name__)
+
+# Durée (s) sans nouvelle position au-delà de laquelle un mouvement est considéré comme terminé.
+# Évite qu'un volet reste indéfiniment "en ouverture/fermeture" s'il est arrêté par une
+# télécommande ou un obstacle, ou si le cloud n'envoie pas de niveau final.
+MOTION_TIMEOUT = 90
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -36,7 +43,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     # Ajoute les entités à Home Assistant
     if entities:
-        async_add_entities(entities, True)
+        async_add_entities(entities)
         LOGGER.info("%d volets Calyps'HOME ajoutés", len(entities))
 
 
@@ -66,9 +73,8 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
         )
 
         self._attr_is_closed = None
+        self._motion_timeout_unsub = None
         self._reset_motion_state()
-        self._target_position: int | None = None
-        self._motion_start_position: int | None = None
 
     @property
     def device_info(self):
@@ -121,6 +127,7 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
                 # Extrait les statuts du volet pour déterminer la position et l'état
                 statuses = shutter.statuses or []
                 status_name = None
+                previous_position = self._attr_current_cover_position
                 for item in statuses:
                     if not isinstance(item, dict):
                         continue
@@ -150,6 +157,10 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
                     self._attr_is_opening = False
                     self._attr_is_closing = False
 
+                # Une nouvelle position pendant un mouvement relance le délai de fin de mouvement
+                if self._target_position is not None and self._attr_current_cover_position != previous_position:
+                    self._arm_motion_timeout()
+
                 # Fin de mouvement: à la réception du level final après une commande.
                 if self._target_position is not None and self._attr_current_cover_position is not None:
                     # Tolérance pour éviter de rester bloqué en mouvement sur de petits écarts.
@@ -171,10 +182,40 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
 
     def _reset_motion_state(self) -> None:
         """Réinitialise l'état de mouvement (volet arrêté)"""
+        self._cancel_motion_timeout()
         self._attr_is_opening = False
         self._attr_is_closing = False
-        self._target_position = None
-        self._motion_start_position = None
+        self._target_position: int | None = None
+        self._motion_start_position: int | None = None
+
+
+    def _cancel_motion_timeout(self) -> None:
+        """Annule le délai de fin de mouvement en cours"""
+        if self._motion_timeout_unsub is not None:
+            self._motion_timeout_unsub()
+            self._motion_timeout_unsub = None
+
+
+    def _arm_motion_timeout(self) -> None:
+        """(Re)lance le délai au-delà duquel le mouvement est considéré comme terminé"""
+        self._cancel_motion_timeout()
+        if self.hass is not None:
+            self._motion_timeout_unsub = async_call_later(self.hass, MOTION_TIMEOUT, self._handle_motion_timeout)
+
+
+    @callback
+    def _handle_motion_timeout(self, _now: datetime) -> None:
+        """Termine le suivi d'un mouvement qui n'a pas atteint sa cible à temps"""
+        self._motion_timeout_unsub = None
+        if self._target_position is None:
+            return
+
+        LOGGER.debug(
+            "Volet %s: pas de nouvelle position depuis %ss, mouvement considéré comme terminé",
+            self._attr_name, MOTION_TIMEOUT,
+        )
+        self._reset_motion_state()
+        self.async_write_ha_state()
 
 
     def _start_motion(self, target: int) -> None:
@@ -191,6 +232,7 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
         else:
             self._attr_is_opening = target > 0
             self._attr_is_closing = target == 0
+        self._arm_motion_timeout()
         self.async_write_ha_state()
 
 
@@ -198,6 +240,12 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
         """Configure le callback pour les mises à jour du coordinateur"""
         await super().async_added_to_hass()
         self._handle_coordinator_update()
+
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Annule le délai de fin de mouvement à la suppression de l'entité"""
+        self._cancel_motion_timeout()
+        await super().async_will_remove_from_hass()
 
 
     async def async_open_cover(self, **kwargs: Any) -> None:
