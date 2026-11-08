@@ -89,13 +89,27 @@ Merci à l'auteur original pour le travail de base et les idées initiales.
 
 ### Méthode 1 : via HACS (recommandée)
 
+Cliquez sur ce bouton pour ouvrir directement le dépôt dans HACS sur votre instance Home Assistant :
+
+[![Ouvrir votre instance Home Assistant et afficher ce dépôt dans HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Legobis965&repository=hass-calypshome-cloud&category=integration)
+
+Cliquez ensuite sur **Télécharger** puis redémarrez Home Assistant.
+
+<details>
+<summary>Sans le bouton : ajouter le dépôt manuellement</summary>
+
 1. Dans HACS, ouvrez le menu ⋮ → **Dépôts personnalisés**
 2. Ajoutez `https://github.com/Legobis965/hass-calypshome-cloud` avec le type **Intégration**
 3. Recherchez **Calyps'HOME Cloud** dans HACS et installez-la
 4. Redémarrez Home Assistant
-5. Allez dans **Paramètres** → **Appareils et services** → **+ Ajouter une intégration**
-6. Recherchez **Calyps'HOME Cloud**
-7. Entrez l'email et le mot de passe de votre compte Calyps'HOME
+
+</details>
+
+Une fois Home Assistant redémarré, cliquez sur ce bouton pour ajouter l'intégration :
+
+[![Ouvrir votre instance Home Assistant et commencer l'ajout de l'intégration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=calypshome_cloud)
+
+Ou allez dans **Paramètres** → **Appareils et services** → **+ Ajouter une intégration** et recherchez **Calyps'HOME Cloud**. Entrez l'email et le mot de passe de votre compte Calyps'HOME.
 
 ### Méthode 2 : installation manuelle
 

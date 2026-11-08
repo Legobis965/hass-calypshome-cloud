@@ -1,8 +1,10 @@
 {
   "domain": "calypshome_cloud",
   "name": "Calyps'HOME Cloud",
+  "categories": ["blinds_curtains", "sensors"],
   "codeowners": ["@legobis"],
   "config_flow": true,
+  "connectivity": ["cloud"],
   "documentation": "https://github.com/Legobis965/hass-calypshome-cloud",
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/Legobis965/hass-calypshome-cloud/issues",
