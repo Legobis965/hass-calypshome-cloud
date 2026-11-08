@@ -1,7 +1,5 @@
 {
   "name": "Calyps'HOME Cloud",
   "render_readme": true,
-  "domains": ["calypshome_cloud"],
-  "iot_class": "cloud_push",
   "homeassistant": "2024.11.0"
 }

@@ -1,10 +1,11 @@
 {
   "domain": "calypshome_cloud",
   "name": "Calyps'HOME Cloud",
-  "version": "1.1.1",
-  "documentation": "https://github.com/Legobis965/hass-calypshome-cloud",
-  "requirements": ["requests>=2.31.0", "websockets>=12.0"],
   "codeowners": ["@legobis"],
   "config_flow": true,
-  "iot_class": "cloud_push"
+  "documentation": "https://github.com/Legobis965/hass-calypshome-cloud",
+  "iot_class": "cloud_push",
+  "issue_tracker": "https://github.com/Legobis965/hass-calypshome-cloud/issues",
+  "requirements": ["requests>=2.31.0", "websockets>=12.0"],
+  "version": "1.2.0"
 }

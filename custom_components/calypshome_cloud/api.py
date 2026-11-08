@@ -14,6 +14,9 @@ REQUEST_TIMEOUT = 10
 # Codes HTTP pouvant indiquer un token expiré ou invalide
 TOKEN_ERROR_STATUSES = (400, 401, 403)
 
+# Action cloud rappelant la position favorite mémorisée dans le moteur du volet
+FAVORITE_ACTION = "FAV_CALL_1"
+
 
 class CalypsHomeError(Exception):
     """Erreur générique de l'API Calyps'HOME"""
@@ -30,20 +33,38 @@ class CalypsHomeAuthError(CalypsHomeError):
 class CalypsHomeObject:
     """Représentation d'un objet Calyps'HOME"""
 
-    def __init__(self, id: int, name: str, class_name: str, real_name: str, statuses: list):
+    def __init__(
+        self,
+        id: int,
+        name: str,
+        class_name: str,
+        real_name: str,
+        statuses: list,
+        actions: list[str] | None = None,
+        hidden: bool = False,
+    ):
         """
         Args:
             id (int): Identifiant unique de l'objet
             name (str): Nom convivial de l'objet
             class_name (str): Nom de la classe de l'objet
             real_name (str): Nom réel de l'objet utilisé par le cloud
-            statuses (list | None, optional): Liste des statuts de l'objet. Defaults to None.
+            statuses (list): Liste des statuts de l'objet
+            actions (list[str] | None): Noms des actions supportées par l'objet (OPEN, FAV_CALL_1, ...)
+            hidden (bool): Objet masqué dans l'application Calyps'HOME
         """
         self.id = id
         self.name = name
         self.class_name = class_name
         self.real_name = real_name
         self.statuses = statuses
+        self.actions = actions or []
+        self.hidden = hidden
+
+    @property
+    def supports_favorite(self) -> bool:
+        """Indique si l'objet supporte le rappel de position favorite"""
+        return FAVORITE_ACTION in self.actions
 
 
 class CalypsHomeAPI:
@@ -92,12 +113,19 @@ class CalypsHomeAPI:
         """
         try:
             objectData = response["resource"]
+            actions = [
+                action["name"] if isinstance(action, dict) else action
+                for action in objectData.get("actions") or []
+                if (isinstance(action, dict) and action.get("name")) or isinstance(action, str)
+            ]
             return CalypsHomeObject(
                 id=objectData["id"],
                 name=objectData.get("name") or objectData.get("realName", "Inconnu"),
                 class_name=objectData["className"],
                 real_name=objectData["realName"],
-                statuses=objectData.get("statuses") or []
+                statuses=objectData.get("statuses") or [],
+                actions=actions,
+                hidden=bool((objectData.get("flags") or {}).get("hidden")),
             )
         except (ValueError, KeyError, TypeError, AttributeError) as e:
             LOGGER.error("Erreur lors de l'extraction de l'objet depuis la réponse: %s", e)
@@ -296,7 +324,9 @@ class CalypsHomeAPI:
             raise CalypsHomeConnectionError("Réponse inattendue lors de la récupération des objets: 'content' n'est pas une liste")
 
         objects = [self._extract_object_from_response(obj) for obj in data]
-        return [obj for obj in objects if obj is not None]
+
+        # Les objets masqués dans l'application Calyps'HOME ne sont pas exposés à Home Assistant
+        return [obj for obj in objects if obj is not None and not obj.hidden]
 
 
     def open_shutter(self, device_id: str) -> bool:
@@ -314,6 +344,10 @@ class CalypsHomeAPI:
     def set_level(self, device_id: str, level: int) -> bool:
         """Définit le niveau d'ouverture du volet"""
         return self._send_action(device_id, "LEVEL", {"level": level})
+
+    def call_favorite(self, device_id: str) -> bool:
+        """Envoie le volet à sa position favorite mémorisée dans le moteur"""
+        return self._send_action(device_id, FAVORITE_ACTION)
 
 
     def close(self) -> None:

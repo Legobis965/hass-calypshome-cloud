@@ -6,11 +6,11 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.components.cover import ATTR_POSITION, CoverDeviceClass, CoverEntity, CoverEntityFeature
 
 from .api import CalypsHomeAPI, CalypsHomeObject
 from .const import DOMAIN
+from .entity import CalypsHomeEntity
 
 LOGGER = logging.getLogger(__name__)
 
@@ -18,6 +18,10 @@ LOGGER = logging.getLogger(__name__)
 # Évite qu'un volet reste indéfiniment "en ouverture/fermeture" s'il est arrêté par une
 # télécommande ou un obstacle, ou si le cloud n'envoie pas de niveau final.
 MOTION_TIMEOUT = 90
+
+# Classe cloud des volets et modèle affiché sur la fiche de l'appareil
+SHUTTER_CLASS = "Shutter"
+SHUTTER_MODEL = "Rolling Shutter"
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -39,7 +43,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         return
 
     # Crée les entités de volet pour chaque objet de type "shutter"
-    entities = [CalypsHomeCover(coordinator, api, obj) for obj in objects if isinstance(obj, CalypsHomeObject) and obj.class_name == "Shutter"]
+    entities = [CalypsHomeCover(coordinator, api, obj) for obj in objects if isinstance(obj, CalypsHomeObject) and obj.class_name == SHUTTER_CLASS]
 
     # Ajoute les entités à Home Assistant
     if entities:
@@ -47,20 +51,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         LOGGER.info("%d volets Calyps'HOME ajoutés", len(entities))
 
 
-class CalypsHomeCover(CoordinatorEntity, CoverEntity):
+class CalypsHomeCover(CalypsHomeEntity, CoverEntity):
     """Représentation d'un volet Calyps'HOME"""
 
-    def __init__(self, coordinator: CoordinatorEntity, api: CalypsHomeAPI, object: CalypsHomeObject):
+    # Entité principale de l'appareil : elle porte simplement le nom du volet
+    _attr_name = None
+
+    def __init__(self, coordinator, api: CalypsHomeAPI, object: CalypsHomeObject):
         """
         Args:
             coordinator: Coordinateur de mise à jour des données
             api: Instance de `CalypsHomeAPI` pour accéder aux données et au token
             object: Objet `CalypsHomeObject` représentant l'objet de type "shutter"
         """
-        super().__init__(coordinator)
-        self._api = api
-        self._device_id = object.id
-        self._attr_name = object.name
+        super().__init__(coordinator, api, object, model=SHUTTER_MODEL)
         self._attr_unique_id = str(self._device_id)
         self._attr_device_class = CoverDeviceClass.SHUTTER
 
@@ -75,16 +79,6 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
         self._attr_is_closed = None
         self._motion_timeout_unsub = None
         self._reset_motion_state()
-
-    @property
-    def device_info(self):
-        """Retourne les informations de l'appareil"""
-        return {
-            "identifiers": {(DOMAIN, str(self._device_id))},
-            "name": self._attr_name,
-            "manufacturer": "Calyps'HOME",
-            "model": "Rolling Shutter",
-        }
 
     @property
     def current_cover_position(self):
@@ -116,12 +110,11 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
         """Met à jour l'état de l'entité à partir des données du coordinateur partagé"""
         try:
             # Récupère les données des objets à partir du coordinateur
-            objects = self.coordinator.data
-            if not objects:
+            if not self.coordinator.data:
                 return
 
             # Trouve l'objet correspondant à ce volet
-            shutter: CalypsHomeObject = next((obj for obj in objects if obj is not None and obj.id == self._device_id), None)     
+            shutter = self._find_object()
             if shutter:
                 
                 # Extrait les statuts du volet pour déterminer la position et l'état
@@ -177,7 +170,7 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
             
             self.async_write_ha_state()
         except Exception as err:
-            LOGGER.error("Erreur lors de la mise à jour du volet %s: %s", self._attr_name, err)
+            LOGGER.error("Erreur lors de la mise à jour du volet %s: %s", self._device_name, err)
 
 
     def _reset_motion_state(self) -> None:
@@ -212,7 +205,7 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
 
         LOGGER.debug(
             "Volet %s: pas de nouvelle position depuis %ss, mouvement considéré comme terminé",
-            self._attr_name, MOTION_TIMEOUT,
+            self._device_name, MOTION_TIMEOUT,
         )
         self._reset_motion_state()
         self.async_write_ha_state()
