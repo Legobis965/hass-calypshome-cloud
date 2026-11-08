@@ -46,7 +46,7 @@ Merci à l'auteur original pour le travail de base et les idées initiales.
 
 ## Captures d'écran
 
-> Captures réalisées dans Home Assistant 2026.2 avec des données d'exemple.
+> Captures réalisées dans Home Assistant 2026.11 avec des données d'exemple.
 
 **Ajout de l'intégration** — seuls l'email et le mot de passe de l'application Calyps'HOME sont demandés :
 
@@ -80,7 +80,7 @@ Merci à l'auteur original pour le travail de base et les idées initiales.
 
 ## Prérequis
 
-- Home Assistant **2024.11** ou plus récent
+- Home Assistant **2024.11** ou plus récent (le logo de l'intégration s'affiche à partir de **2026.3**)
 - Un compte Calyps'HOME (identifiants de l'application mobile)
 
 ## Installation
