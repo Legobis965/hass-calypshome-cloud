@@ -1,4 +1,3 @@
-
 {
   "config": {
     "step": {
@@ -8,14 +7,61 @@
         "data": {
           "login": "Email de connexion",
           "password": "Mot de passe"
+        },
+        "data_description": {
+          "login": "Email utilisé pour vous connecter à l'application mobile Calyps'HOME",
+          "password": "Mot de passe de votre compte Calyps'HOME"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Réauthentification Calyps'HOME",
+        "description": "Le cloud Calyps'HOME a refusé les identifiants de {login}. Saisissez le mot de passe actuel, ou un autre email si le compte a changé.",
+        "data": {
+          "login": "Email de connexion",
+          "password": "Mot de passe"
+        },
+        "data_description": {
+          "login": "Email utilisé pour vous connecter à l'application mobile Calyps'HOME",
+          "password": "Mot de passe de votre compte Calyps'HOME"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfiguration de Calyps'HOME",
+        "description": "Modifiez l'email ou le mot de passe utilisé pour le compte Calyps'HOME {login}.",
+        "data": {
+          "login": "Email de connexion",
+          "password": "Mot de passe"
+        },
+        "data_description": {
+          "login": "Email utilisé pour vous connecter à l'application mobile Calyps'HOME",
+          "password": "Mot de passe de votre compte Calyps'HOME"
         }
       }
     },
     "error": {
-      "cannot_connect": "Impossible de se connecter à Calyps'HOME. Vérifiez l'email et le mot de passe."
+      "cannot_connect": "Impossible de se connecter au cloud Calyps'HOME. Réessayez plus tard.",
+      "invalid_auth": "Email ou mot de passe incorrect.",
+      "unknown": "Erreur inattendue."
     },
     "abort": {
-      "already_configured": "Cette box Calyps'HOME est déjà configurée"
+      "already_configured": "Ce compte Calyps'HOME est déjà configuré",
+      "reauth_successful": "Réauthentification réussie",
+      "reconfigure_successful": "Reconfiguration réussie"
+    }
+  },
+  "entity": {
+    "button": {
+      "favorite_position": {
+        "name": "Position favorite"
+      }
+    },
+    "sensor": {
+      "temperature": {
+        "name": "Température"
+      },
+      "illuminance": {
+        "name": "Luminosité"
+      }
     }
   }
 }

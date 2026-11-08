@@ -3,12 +3,12 @@ import logging
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfTemperature, LIGHT_LUX
 
 from .api import CalypsHomeAPI, CalypsHomeObject
 from .const import DOMAIN
+from .entity import CalypsHomeEntity
 
 LOGGER = logging.getLogger(__name__)
 
@@ -40,53 +40,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             entities.append(CalypsHomeIlluminanceSensor(coordinator, api, obj))
 
     if entities:
-        async_add_entities(entities, True)
-        LOGGER.info("%d capteurs Calyps'HOME ajoutés", len(sonde_objects))
+        async_add_entities(entities)
+        LOGGER.info("%d capteurs Calyps'HOME ajoutés", len(entities))
 
 
-class CalypsHomeSensorBase(CoordinatorEntity, SensorEntity):
+SENSOR_MODEL = "Sensor"
+
+
+class CalypsHomeSensorBase(CalypsHomeEntity, SensorEntity):
     """Base commune pour les capteurs Calyps'HOME (température, luminosité, ...)"""
 
     _status_name: str = ""
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator: CoordinatorEntity, api: CalypsHomeAPI, object: CalypsHomeObject, unique_suffix: str):
+    def __init__(self, coordinator, api: CalypsHomeAPI, object: CalypsHomeObject):
         """
         Args:
             coordinator: Coordinateur de mise à jour des données
             api: Instance de `CalypsHomeAPI`
             object: Objet `CalypsHomeObject` représentant la sonde
-            unique_suffix: Suffixe pour rendre l'unique_id distinct entre les capteurs d'une même sonde
         """
-        super().__init__(coordinator)
-        self._api = api
-        self._device_id = object.id
-        self._device_name = object.name
-        self._attr_unique_id = f"{self._device_id}_{unique_suffix}"
+        super().__init__(coordinator, api, object, model=SENSOR_MODEL)
+        # Le nom du statut sert aussi de suffixe d'unique_id et de clé de traduction du nom
+        self._attr_unique_id = f"{self._device_id}_{self._status_name}"
+        self._attr_translation_key = self._status_name
         self._attr_native_value = None
-        self._attr_available = True
-
-    @property
-    def device_info(self):
-        """Retourne les informations de l'appareil (regroupe les capteurs sous une même sonde)"""
-        return {
-            "identifiers": {(DOMAIN, str(self._device_id))},
-            "name": self._device_name,
-            "manufacturer": "Calyps'HOME",
-            "model": "Sensor",
-        }
 
     def _find_status_value(self) -> str | None:
         """Récupère la valeur brute (str) du statut `_status_name` pour cette sonde, ou None"""
-        objects = self.coordinator.data
-        if not objects:
-            return None
-
-        sonde = next((obj for obj in objects if obj is not None and obj.id == self._device_id), None)
+        sonde = self._find_object()
         if not sonde:
             return None
 
-        statuses = sonde.statuses or []
-        for item in statuses:
+        for item in sonde.statuses or []:
             if isinstance(item, dict) and item.get("name") == self._status_name:
                 return item.get("value")
         return None
@@ -111,23 +97,15 @@ class CalypsHomeTemperatureSensor(CalypsHomeSensorBase):
     """Capteur de température d'une sonde Calyps'HOME"""
 
     _status_name = "temperature"
-
-    def __init__(self, coordinator: CoordinatorEntity, api: CalypsHomeAPI, object: CalypsHomeObject):
-        super().__init__(coordinator, api, object, unique_suffix="temperature")
-        self._attr_name = f"{object.name} Température"
-        self._attr_device_class = SensorDeviceClass.TEMPERATURE
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-        self._attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_suggested_display_precision = 1
 
 
 class CalypsHomeIlluminanceSensor(CalypsHomeSensorBase):
     """Capteur de luminosité d'une sonde Calyps'HOME"""
 
     _status_name = "illuminance"
-
-    def __init__(self, coordinator: CoordinatorEntity, api: CalypsHomeAPI, object: CalypsHomeObject):
-        super().__init__(coordinator, api, object, unique_suffix="illuminance")
-        self._attr_name = f"{object.name} Luminosité"
-        self._attr_device_class = SensorDeviceClass.ILLUMINANCE
-        self._attr_state_class = SensorStateClass.MEASUREMENT
-        self._attr_native_unit_of_measurement = LIGHT_LUX
+    _attr_device_class = SensorDeviceClass.ILLUMINANCE
+    _attr_native_unit_of_measurement = LIGHT_LUX
+    _attr_suggested_display_precision = 0

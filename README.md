@@ -1,155 +1,266 @@
-# Calyps'HOME - Intégration Home Assistant (Cloud)
+# Calyps'HOME - Home Assistant Integration (Cloud)
 
-Intégration personnalisée pour contrôler vos volets roulants Calyps'HOME via Home Assistant et le cloud Calyps'HOME.
+🇬🇧 **English** | 🇫🇷 [Français](README.fr.md)
 
-## ⚠️ Avertissement / Disclaimer
+[![Validation](https://github.com/Legobis965/hass-calypshome-cloud/actions/workflows/validate.yml/badge.svg)](https://github.com/Legobis965/hass-calypshome-cloud/actions/workflows/validate.yml)
+[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.11%2B-41BDF5.svg)](https://www.home-assistant.io/)
 
-**Ce composant personnalisé est indépendant et n'est en aucun cas affilié à la marque Calyps'HOME.**
+Custom integration to control your Calyps'HOME roller shutters and read your sensors (temperature, illuminance) from Home Assistant through the Calyps'HOME cloud.
 
-- ✋ **Projet non officiel** : Ce composant a été développé de manière indépendante et n'est pas supporté par le fabricant Calyps'HOME
-- 🚫 **Aucune garantie** : Ce logiciel est fourni "tel quel", sans aucune garantie de fonctionnement
-- ⚠️ **Utilisation à vos risques** : L'auteur ne peut être tenu responsable de tout dysfonctionnement, dommage matériel ou perte de données résultant de l'utilisation de ce composant
-- 🔧 **Support limité** : Le support technique est fourni sur la base du volontariat et sans engagement
-- 📝 **Licence MIT** : Ce projet est fourni sous licence MIT - voir le fichier LICENSE pour plus de détails
+## ⚠️ Disclaimer
 
-**En utilisant ce composant, vous acceptez ces conditions.**
+**This custom component is independent and is in no way affiliated with the Calyps'HOME brand.**
 
-## Origine du projet
+- ✋ **Unofficial project**: this component was developed independently and is not supported by the manufacturer Calyps'HOME
+- 🚫 **No warranty**: this software is provided "as is", without any guarantee that it works
+- ⚠️ **Use at your own risk**: the author cannot be held liable for any malfunction, hardware damage or data loss resulting from the use of this component
+- 🔧 **Limited support**: support is provided on a voluntary basis, with no commitment
+- 📝 **MIT license**: this project is released under the MIT license, see the [LICENSE](LICENSE) file
 
-Ce dépôt est un fork du projet original [saniho/calypshome](https://github.com/saniho/calypshome).
+**By using this component, you accept these terms.**
 
-Le projet original fonctionnait **en mode local uniquement** : il communiquait directement avec la box Calyps'HOME sur le réseau local.
+## Project history
 
-Ce fork a été réécrit pour basculer vers un **fonctionnement entièrement cloud** : l'intégration communique désormais avec l'API cloud d'Avidsen (`calypshome.avidsen.one`) exactement comme le fait l'application mobile officielle. Cela permet d'utiliser l'intégration depuis n'importe où, sans dépendance au réseau local.
+This repository is a fork of the original project [saniho/calypshome](https://github.com/saniho/calypshome).
 
-Merci à l'auteur original pour le travail de base et les idées initiales.
+The original project worked **locally only**: it talked directly to the Calyps'HOME box on the local network.
 
-## Fonctionnalités
+This fork was rewritten to work **entirely through the cloud**: the integration talks to the Avidsen cloud API (`calypshome.avidsen.one`) just like the official mobile app does. It therefore works from anywhere, without depending on the local network.
 
-- ✅ Découverte automatique de tous les volets roulants
-- ✅ Découverte automatique des sondes (température et luminosité)
-- ✅ Ouverture / Fermeture / Arrêt
-- ✅ Positionnement précis (0-100%)
-- ✅ Mise à jour en temps réel via WebSocket (volets, température, luminosité)
-- ✅ Configuration via l'interface utilisateur
-- ✅ Compatible avec toutes les automatisations Home Assistant
-- ✅ Fonctionne depuis n'importe quel réseau (cloud)
+Thanks to the original author for the groundwork and the initial ideas.
+
+## Features
+
+- ✅ Automatic discovery of all roller shutters
+- ✅ Automatic discovery of sensors (temperature and illuminance)
+- ✅ Open / Close / Stop
+- ✅ Precise positioning (0-100 %), carried out by the shutter motor
+- ✅ **Real** position reported by the cloud (no timer-based estimation)
+- ✅ Real-time updates over WebSocket (shutters, temperature, illuminance)
+- ✅ **Favorite position** button for shutters that support it
+- ✅ Objects **hidden** in the Calyps'HOME app are not imported
+- ✅ Translated entity names (English / French), grouped by device
+- ✅ Set up from the user interface, with duplicate account detection
+- ✅ Re-authentication and change of email or password without removing the integration
+- ✅ Entities become unavailable when the cloud does not respond, with automatic retry at startup
+- ✅ Works from any network (cloud)
+
+## Screenshots
+
+> Screenshots taken in Home Assistant 2026.11 (French interface) with sample data.
+
+**Adding the integration**: only the email and password of the Calyps'HOME app are required.
+
+<p align="center">
+  <img src="images/config-flow.png" width="80%" alt="Calyps'HOME setup form">
+</p>
+
+**Discovered devices**: one device per shutter and per sensor.
+
+<p align="center">
+  <img src="images/integration-devices.png" width="80%" alt="List of the integration's devices">
+</p>
+
+**Shutter device page**: open / stop / close controls and favorite position button.
+
+<p align="center">
+  <img src="images/device-shutter.png" width="80%" alt="Shutter device page with the Favorite position button">
+</p>
+
+**Real shutter position**: position slider driven by the level reported by the cloud.
+
+<p align="center">
+  <img src="images/cover-more-info.png" width="80%" alt="Dialog of a shutter open at 45 %">
+</p>
+
+**Sensor device page**: temperature and illuminance.
+
+<p align="center">
+  <img src="images/device-sensor.png" width="80%" alt="Sensor device page with temperature and illuminance">
+</p>
+
+## Requirements
+
+- Home Assistant **2024.11** or later (the integration logo is displayed from **2026.3** onwards)
+- A Calyps'HOME account (the credentials of the mobile app)
 
 ## Installation
 
-### Méthode 1 : Installation via HACS
+### Option 1: HACS (recommended)
 
-1. Ajoutez ce dépôt comme dépôt personnalisé dans HACS (catégorie : Integration)
-2. Installez l'intégration Calyps'HOME
-3. Redémarrez Home Assistant
-4. Allez dans **Paramètres** → **Appareils et services**
-5. Cliquez sur **+ Ajouter une intégration**
-6. Recherchez "Calyps'HOME"
-7. Entrez vos informations de connexion :
-   - **Email** : Votre email de connexion au cloud Calyps'HOME
-   - **Mot de passe** : Votre mot de passe
+Click this button to open the repository directly in HACS on your Home Assistant instance:
 
-### Méthode 2 : Installation manuelle
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Legobis965&repository=hass-calypshome-cloud&category=integration)
 
-1. Copiez le dossier `custom_components/calypshome_cloud` dans votre dossier `config/custom_components/` de Home Assistant
-2. Redémarrez Home Assistant
-3. Allez dans **Paramètres** → **Appareils et services**
-4. Cliquez sur **+ Ajouter une intégration**
-5. Recherchez "Calyps'HOME"
-6. Entrez vos identifiants de connexion au cloud Calyps'HOME
+Then click **Download** and restart Home Assistant.
+
+<details>
+<summary>Without the button: add the repository manually</summary>
+
+1. In HACS, open the ⋮ menu → **Custom repositories**
+2. Add `https://github.com/Legobis965/hass-calypshome-cloud` with the type **Integration**
+3. Search for **Calyps'HOME Cloud** in HACS and download it
+4. Restart Home Assistant
+
+</details>
+
+Once Home Assistant has restarted, click this button to add the integration:
+
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=calypshome_cloud)
+
+Or go to **Settings** → **Devices & services** → **+ Add integration** and search for **Calyps'HOME Cloud**. Enter the email and password of your Calyps'HOME account.
+
+### Option 2: manual installation
+
+1. Copy the `custom_components/calypshome_cloud` folder into the `config/custom_components/` folder of Home Assistant
+2. Restart Home Assistant
+3. Go to **Settings** → **Devices & services** → **+ Add integration**
+4. Search for **Calyps'HOME Cloud**
+5. Enter the email and password of your Calyps'HOME account
+
+### Upgrading from an earlier version
+
+Update from HACS, then restart Home Assistant. Your entities keep their identifier (`entity_id`): existing automations, scripts and dashboards keep working. Starting with version 1.2.0, Home Assistant 2024.11 or later is required.
 
 ## Configuration
 
-Après l'installation, tous vos volets roulants seront automatiquement découverts et ajoutés comme entités `cover.*` dans Home Assistant.
+After installation, your roller shutters and sensors are discovered automatically: one device is created for each of them, with its entities (`cover`, `button`, `sensor`, see [Entities](#entities)).
 
-## Utilisation
+### Changing the email or password
 
-### Dans l'interface Lovelace
+- **Password changed or rejected**: Home Assistant shows a *"Re-authentication required"* notification. Click it and enter the new password, or another email if the account changed.
+- **At any time**: **Settings** → **Devices & services** → **Calyps'HOME Cloud** → ⋮ menu of the entry → **Reconfigure**.
 
-Les volets apparaîtront automatiquement dans votre interface avec les contrôles standard :
-- Bouton Ouvrir
-- Bouton Fermer
-- Bouton Stop
-- Curseur de position
+In both cases, entities and their history are kept. An email already used by another entry is rejected.
 
-### Dans les automatisations
+## Entities
+
+Names are built from the device name and translated according to the Home Assistant language (English examples below).
+
+| Entity | Type | Created for | Description |
+|---|---|---|---|
+| `<shutter>` | `cover` | every shutter | State (open, closed, opening, closing) and position 0-100 % |
+| `<shutter> Favorite position` | `button` | every shutter supporting the `FAV_CALL_1` action | Sends the shutter to the favorite position stored in its motor |
+| `<sensor> Temperature` | `sensor` | every sensor with a temperature reading | Temperature in °C |
+| `<sensor> Illuminance` | `sensor` | every sensor with an illuminance reading | Illuminance in lx |
+
+Objects hidden in the Calyps'HOME app are not imported.
+
+## Usage
+
+### In dashboards
+
+Shutters are shown with the standard Home Assistant controls: open, stop, close and position slider. Favorite position buttons and sensors can be added from each device page (**Add to dashboard**).
+
+### In automations
 
 ```yaml
-# Exemple : Fermer tous les volets au coucher du soleil
+# Close all shutters at sunset
 automation:
-  - alias: "Fermer volets au coucher du soleil"
-    trigger:
-      platform: sun
-      event: sunset
-    action:
-      - service: cover.close_cover
+  - alias: "Close shutters at sunset"
+    triggers:
+      - trigger: sun
+        event: sunset
+    actions:
+      - action: cover.close_cover
         target:
           entity_id: all
 ```
 
-### Dans les scripts
+```yaml
+# Send the living room shutter to its favorite position when it is hot outside
+automation:
+  - alias: "Living room shutter to favorite position when hot"
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.terrace_sensor_temperature
+        above: 28
+    actions:
+      - action: button.press
+        target:
+          entity_id: button.living_room_favorite_position
+```
+
+### In scripts
 
 ```yaml
-# Exemple : Ouvrir la cuisine à 50%
+# Open the kitchen shutter halfway
 script:
-  cuisine_mi_ouvert:
+  kitchen_half_open:
     sequence:
-      - service: cover.set_cover_position
+      - action: cover.set_cover_position
         target:
-          entity_id: cover.cuisine
+          entity_id: cover.kitchen
         data:
           position: 50
 ```
 
-### Via les services
+### Available actions
 
 ```yaml
-# Ouvrir un volet (remplacez par le nom de votre volet)
-service: cover.open_cover
+# Open a shutter (replace with your shutter's entity ID)
+action: cover.open_cover
 target:
-  entity_id: cover.votre_volet
+  entity_id: cover.your_shutter
 
-# Fermer un volet
-service: cover.close_cover
+# Close a shutter
+action: cover.close_cover
 target:
-  entity_id: cover.votre_volet
+  entity_id: cover.your_shutter
 
-# Position spécifique (0 = fermé, 100 = ouvert)
-service: cover.set_cover_position
+# Precise position (0 = closed, 100 = open)
+action: cover.set_cover_position
 target:
-  entity_id: cover.votre_volet
+  entity_id: cover.your_shutter
 data:
   position: 75
 
-# Arrêter un volet en mouvement
-service: cover.stop_cover
+# Stop a moving shutter
+action: cover.stop_cover
 target:
-  entity_id: cover.votre_volet
+  entity_id: cover.your_shutter
+
+# Send a shutter to its favorite position
+action: button.press
+target:
+  entity_id: button.your_shutter_favorite_position
 ```
 
-## Entités créées
+> Entity IDs depend on your device names and on the Home Assistant language when they were created: check them in **Settings** → **Devices & services** → **Entities**.
 
-Pour chaque volet, une entité `cover.*` sera créée avec :
-- **État** : open, closed, opening, closing
-- **Position** : 0-100%
+## Troubleshooting
 
-## Dépannage
+### Shutters are not discovered
 
-### Les volets ne sont pas découverts
+1. Check your cloud login credentials
+2. Check the logs: **Settings** → **System** → **Logs**, then search for `calypshome_cloud`
+3. Check that your Calyps'HOME account actually contains shutters
+4. Check that the shutter is not **hidden** in the Calyps'HOME app: hidden objects are ignored
 
-1. Vérifiez vos identifiants de connexion au cloud
-2. Consultez les logs : **Paramètres** → **Journaux** → Recherchez "calypshome_cloud"
-3. Vérifiez que votre compte Calyps'HOME contient bien des volets
+### Entities are "unavailable"
 
-### Les commandes ne fonctionnent pas
+The Calyps'HOME cloud is not responding. The integration retries automatically every 5 minutes; entities become available again as soon as the cloud responds.
 
-1. Vérifiez que vos commandes fonctionnent sur l'interface ou l'application d'origine
-2. Vérifiez les logs Home Assistant
-3. Assurez-vous que votre compte cloud est valide
+### A shutter stays "opening" or "closing"
 
-### Logs
+Without a new position for 90 seconds, the movement is considered finished. If your shutters take longer, increase `MOTION_TIMEOUT` in `cover.py`.
 
-Pour activer les logs détaillés, ajoutez dans `configuration.yaml` :
+### The "Favorite position" button does not appear
+
+It is only created for shutters for which the cloud reports the `FAV_CALL_1` action. Check that a favorite position is stored for this shutter in the Calyps'HOME app.
+
+### Commands do not work
+
+1. Check that commands work from the Calyps'HOME app
+2. Check the Home Assistant logs
+3. Make sure your cloud account is valid
+
+### Debug logs
+
+The easiest way: **Settings** → **Devices & services** → **Calyps'HOME Cloud** → **Enable debug logging**, reproduce the problem, then disable it to download the log file.
+
+You can also add to `configuration.yaml`:
 
 ```yaml
 logger:
@@ -158,38 +269,60 @@ logger:
     custom_components.calypshome_cloud: debug
 ```
 
-## Développement
+## Removal
 
-Ce composant a été développé en analysant le trafic HTTP de l'application mobile officielle Calyps'HOME afin de reproduire fidèlement les appels vers l'API cloud Avidsen.
+1. **Settings** → **Devices & services** → **Calyps'HOME Cloud** → ⋮ menu of the entry → **Delete**
+2. If the integration was installed with HACS, remove it from HACS as well
+3. Restart Home Assistant
 
-## À propos de ce projet
+## Development
 
-Ce composant est un projet **communautaire non officiel** créé pour permettre l'intégration des volets roulants Calyps'HOME dans Home Assistant via le cloud.
+This component was developed by analyzing the HTTP traffic of the official Calyps'HOME mobile app, in order to faithfully reproduce its calls to the Avidsen cloud API.
 
-**Relation avec la marque** :
-- ❌ Non développé par Calyps'HOME
-- ❌ Non validé par Calyps'HOME
-- ❌ Non supporté officiellement par Calyps'HOME
-- ✅ Développé par la communauté pour la communauté
+### Continuous integration
 
-**Crédits** :
-- Projet original (mode local) : [saniho/calypshome](https://github.com/saniho/calypshome)
-- Ce fork : réécriture complète en mode cloud
+On every push and every week, GitHub Actions validates the integration with:
+- **hassfest**: official Home Assistant validation (manifest, translations, config flow);
+- **HACS**: repository validation for HACS.
 
-**Responsabilités** :
-- L'auteur de ce composant n'est pas responsable des dysfonctionnements de votre installation
-- Calyps'HOME n'est pas responsable des problèmes liés à l'utilisation de ce composant
-- Toute modification de la configuration de votre compte se fait sous votre responsabilité
+### Publishing a release
 
-## Licence
+1. Update `version` in `custom_components/calypshome_cloud/manifest.json` (e.g. `1.2.0`).
+2. Create and push the matching tag:
+   ```bash
+   git tag 1.2.0
+   git push origin 1.2.0
+   ```
+3. The **Release** workflow checks that the tag matches the manifest, then publishes the GitHub release with generated notes and the `calypshome_cloud.zip` archive.
 
-MIT License - Ce logiciel est fourni sans aucune garantie.
+## About this project
+
+This component is an **unofficial community project** created to integrate Calyps'HOME roller shutters into Home Assistant through the cloud.
+
+**Relationship with the brand**:
+- ❌ Not developed by Calyps'HOME
+- ❌ Not endorsed by Calyps'HOME
+- ❌ Not officially supported by Calyps'HOME
+- ✅ Developed by the community, for the community
+
+**Credits**:
+- Original project (local mode): [saniho/calypshome](https://github.com/saniho/calypshome)
+- This fork: complete rewrite in cloud mode
+
+**Responsibilities**:
+- The author of this component is not responsible for malfunctions of your installation
+- Calyps'HOME is not responsible for problems related to the use of this component
+- Any change to your account configuration is made under your own responsibility
+
+## License
+
+MIT License: this software is provided without any warranty. See [LICENSE](LICENSE).
 
 ## Support
 
-Pour toute question ou problème :
-- 📖 Consultez d'abord la documentation
-- 🔍 Vérifiez les issues existantes sur GitHub
-- 💬 Ouvrez une nouvelle issue si nécessaire
+For any question or problem:
+- 📖 Read this documentation first
+- 🔍 Check the [existing issues](https://github.com/Legobis965/hass-calypshome-cloud/issues)
+- 💬 Open a new issue if needed
 
-**Note** : Pour les problèmes matériels ou liés au service Calyps'HOME lui-même, contactez directement le support officiel de Calyps'HOME.
+**Note**: for hardware problems or issues with the Calyps'HOME service itself, contact the official Calyps'HOME support directly.

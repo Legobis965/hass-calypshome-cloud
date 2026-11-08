@@ -1,16 +1,27 @@
 import logging
+from datetime import datetime
 from typing import Any
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.event import async_call_later
 from homeassistant.components.cover import ATTR_POSITION, CoverDeviceClass, CoverEntity, CoverEntityFeature
 
 from .api import CalypsHomeAPI, CalypsHomeObject
 from .const import DOMAIN
+from .entity import CalypsHomeEntity
 
 LOGGER = logging.getLogger(__name__)
+
+# Durée (s) sans nouvelle position au-delà de laquelle un mouvement est considéré comme terminé.
+# Évite qu'un volet reste indéfiniment "en ouverture/fermeture" s'il est arrêté par une
+# télécommande ou un obstacle, ou si le cloud n'envoie pas de niveau final.
+MOTION_TIMEOUT = 90
+
+# Classe cloud des volets et modèle affiché sur la fiche de l'appareil
+SHUTTER_CLASS = "Shutter"
+SHUTTER_MODEL = "Rolling Shutter"
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -32,28 +43,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         return
 
     # Crée les entités de volet pour chaque objet de type "shutter"
-    entities = [CalypsHomeCover(coordinator, api, obj) for obj in objects if isinstance(obj, CalypsHomeObject) and obj.class_name == "Shutter"]
+    entities = [CalypsHomeCover(coordinator, api, obj) for obj in objects if isinstance(obj, CalypsHomeObject) and obj.class_name == SHUTTER_CLASS]
 
     # Ajoute les entités à Home Assistant
     if entities:
-        async_add_entities(entities, True)
+        async_add_entities(entities)
         LOGGER.info("%d volets Calyps'HOME ajoutés", len(entities))
 
 
-class CalypsHomeCover(CoordinatorEntity, CoverEntity):
+class CalypsHomeCover(CalypsHomeEntity, CoverEntity):
     """Représentation d'un volet Calyps'HOME"""
 
-    def __init__(self, coordinator: CoordinatorEntity, api: CalypsHomeAPI, object: CalypsHomeObject):
+    # Entité principale de l'appareil : elle porte simplement le nom du volet
+    _attr_name = None
+
+    def __init__(self, coordinator, api: CalypsHomeAPI, object: CalypsHomeObject):
         """
         Args:
             coordinator: Coordinateur de mise à jour des données
             api: Instance de `CalypsHomeAPI` pour accéder aux données et au token
             object: Objet `CalypsHomeObject` représentant l'objet de type "shutter"
         """
-        super().__init__(coordinator)
-        self._api = api
-        self._device_id = object.id
-        self._attr_name = object.name
+        super().__init__(coordinator, api, object, model=SHUTTER_MODEL)
         self._attr_unique_id = str(self._device_id)
         self._attr_device_class = CoverDeviceClass.SHUTTER
 
@@ -66,19 +77,8 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
         )
 
         self._attr_is_closed = None
+        self._motion_timeout_unsub = None
         self._reset_motion_state()
-        self._target_position: int | None = None
-        self._motion_start_position: int | None = None
-
-    @property
-    def device_info(self):
-        """Retourne les informations de l'appareil"""
-        return {
-            "identifiers": {(DOMAIN, str(self._device_id))},
-            "name": self._attr_name,
-            "manufacturer": "Calyps'HOME",
-            "model": "Rolling Shutter",
-        }
 
     @property
     def current_cover_position(self):
@@ -110,17 +110,17 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
         """Met à jour l'état de l'entité à partir des données du coordinateur partagé"""
         try:
             # Récupère les données des objets à partir du coordinateur
-            objects = self.coordinator.data
-            if not objects:
+            if not self.coordinator.data:
                 return
 
             # Trouve l'objet correspondant à ce volet
-            shutter: CalypsHomeObject = next((obj for obj in objects if obj is not None and obj.id == self._device_id), None)     
+            shutter = self._find_object()
             if shutter:
                 
                 # Extrait les statuts du volet pour déterminer la position et l'état
                 statuses = shutter.statuses or []
                 status_name = None
+                previous_position = self._attr_current_cover_position
                 for item in statuses:
                     if not isinstance(item, dict):
                         continue
@@ -150,6 +150,10 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
                     self._attr_is_opening = False
                     self._attr_is_closing = False
 
+                # Une nouvelle position pendant un mouvement relance le délai de fin de mouvement
+                if self._target_position is not None and self._attr_current_cover_position != previous_position:
+                    self._arm_motion_timeout()
+
                 # Fin de mouvement: à la réception du level final après une commande.
                 if self._target_position is not None and self._attr_current_cover_position is not None:
                     # Tolérance pour éviter de rester bloqué en mouvement sur de petits écarts.
@@ -166,15 +170,45 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
             
             self.async_write_ha_state()
         except Exception as err:
-            LOGGER.error("Erreur lors de la mise à jour du volet %s: %s", self._attr_name, err)
+            LOGGER.error("Erreur lors de la mise à jour du volet %s: %s", self._device_name, err)
 
 
     def _reset_motion_state(self) -> None:
         """Réinitialise l'état de mouvement (volet arrêté)"""
+        self._cancel_motion_timeout()
         self._attr_is_opening = False
         self._attr_is_closing = False
-        self._target_position = None
-        self._motion_start_position = None
+        self._target_position: int | None = None
+        self._motion_start_position: int | None = None
+
+
+    def _cancel_motion_timeout(self) -> None:
+        """Annule le délai de fin de mouvement en cours"""
+        if self._motion_timeout_unsub is not None:
+            self._motion_timeout_unsub()
+            self._motion_timeout_unsub = None
+
+
+    def _arm_motion_timeout(self) -> None:
+        """(Re)lance le délai au-delà duquel le mouvement est considéré comme terminé"""
+        self._cancel_motion_timeout()
+        if self.hass is not None:
+            self._motion_timeout_unsub = async_call_later(self.hass, MOTION_TIMEOUT, self._handle_motion_timeout)
+
+
+    @callback
+    def _handle_motion_timeout(self, _now: datetime) -> None:
+        """Termine le suivi d'un mouvement qui n'a pas atteint sa cible à temps"""
+        self._motion_timeout_unsub = None
+        if self._target_position is None:
+            return
+
+        LOGGER.debug(
+            "Volet %s: pas de nouvelle position depuis %ss, mouvement considéré comme terminé",
+            self._device_name, MOTION_TIMEOUT,
+        )
+        self._reset_motion_state()
+        self.async_write_ha_state()
 
 
     def _start_motion(self, target: int) -> None:
@@ -191,6 +225,7 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
         else:
             self._attr_is_opening = target > 0
             self._attr_is_closing = target == 0
+        self._arm_motion_timeout()
         self.async_write_ha_state()
 
 
@@ -198,6 +233,12 @@ class CalypsHomeCover(CoordinatorEntity, CoverEntity):
         """Configure le callback pour les mises à jour du coordinateur"""
         await super().async_added_to_hass()
         self._handle_coordinator_update()
+
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Annule le délai de fin de mouvement à la suppression de l'entité"""
+        self._cancel_motion_timeout()
+        await super().async_will_remove_from_hass()
 
 
     async def async_open_cover(self, **kwargs: Any) -> None:
